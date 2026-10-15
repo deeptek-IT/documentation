@@ -255,14 +255,3 @@ Execute the statements and review the output for errors. Some queries may return
 
 Important: Before executing the queries, confirm that the SQL file corresponds to the intended release and database. Review any `UPDATE`, `DELETE`, `DROP`, or schema-changing statements carefully. Take a database backup before executing release queries, as appropriate for the deployment procedure.
 
-### Alternative: Execute the SQL file directly
-
-Instead of copying and pasting the queries manually, you can execute the file directly from the deployment directory:
-
-```
-docker exec -i dt_mysql mysql -u <user> -p <database_name> < db-queries/release-V<version>-queries.sql
-```
-
-This command prompts for the MySQL password and passes the SQL file directly to the MySQL client inside the container. It avoids manual copying and reduces the risk of missing statements.
-
-Use the method approved for the deployment process, and verify that the execution completed successfully before proceeding.
