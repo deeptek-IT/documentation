@@ -19,7 +19,10 @@ cd rotary-taiwan-docker-compose
 
 This downloads the deployment configuration files from GitHub to the local laptop. The person can then review and modify the files required for deployment.
 
-### Step 1.2: Update environment variables
+### Step 1.2: Updating SSL files
+
+Put SSL files (augmento.crt, augmento.key) in the folder  "volumes/nginx/" 
+### Step 1.3: Update environment variables
 
 Review the relevant `.env` files, such as:
 
@@ -31,7 +34,7 @@ Update the required environment variables according to the client's environment,
 
 Important: Use the actual values provided for the target environment. Do not commit passwords, access tokens, or other sensitive credentials to a public or shared Git repository.
 
-### Step 1.3: Update Docker image tags
+### Step 1.4: Update Docker image tags
 
 Open `docker-compose.yaml` and update the Docker image tags for the services that need to be deployed.
 
@@ -39,13 +42,13 @@ For example, if a service currently uses an older image tag, update it to the ap
 
 This ensures that Docker Compose deploys the intended application versions rather than unintentionally using an older release.
 
-### Step 1.4: Review the MySQL configuration
+### Step 1.5: Review the MySQL configuration
 
 Review `docker-compose-mysql.yaml` to confirm that the MySQL configuration is suitable for the target environment.
 
 Generally, no changes are required unless the database configuration, storage settings, credentials, or other deployment requirements have changed.
 
-### Step 1.5: Commit and push the changes to GitHub
+### Step 1.6: Commit and push the changes to GitHub
 
 After reviewing and updating the required files, execute:
 
@@ -162,32 +165,104 @@ docker compose logs --tail=100 <service-name>
 
 Finally, verify the application using the configured health-check endpoints or application URL, and confirm that the application can connect to the database.
 
-## Deployment workflow at a glance
 
-1\. Local laptop
 
-Clone repository, update environment variables and image tags, review configuration.
+## 5. Execute Database Queries (This step is not mandatory step, should be used if needed)
 
-2\. GitHub
+This step explains how to execute the database queries provided with the application release. These queries must be executed against the correct database after the application’s database configuration has been verified.
 
-Commit and push the approved deployment configuration to the deployment branch.
+### Step 5.1: Retrieve the database credentials
 
-3\. Deployment server
+On the deployment server, navigate to the directory containing the MySQL environment file and review its contents:
 
-Clone the repository and navigate to the project directory.
+```
+cat mysql.env
+```
 
-4\. Start services
+Identify the configured MySQL username, password, and other relevant connection details.
 
-Start MySQL first, followed by the application services.
+Security note: The file may contain sensitive credentials. Do not share its contents in screenshots, logs, or public channels.
 
-5\. Validate deployment
+### Step 5.2: Access the MySQL container
 
-Verify container status, database connectivity, application health, and access.
+Execute the following command to open a shell inside the MySQL container:
 
-Important considerations for the first deployment
+```
+docker exec -it dt_mysql bash
+```
 
-- Ensure Docker Engine and the Docker Compose plugin are installed on the deployment server.
-- Confirm that the required ports, firewall rules, and network connectivity are configured.
-- Ensure persistent storage is configured correctly for MySQL and other services that require it.
-- Do not run the MySQL startup command if it would unintentionally initialize a new database or conflict with an existing database setup. Verify the intended database initialization and persistence behavior first.
-- For future deployments, if the repository already exists on the server, use `git pull` on the correct branch instead of cloning it again. Review the changes before restarting services.
+This opens an interactive terminal inside the running container named `dt_mysql`.
+
+### Step 5.3: Log in to MySQL
+
+From inside the container, execute:
+
+```
+mysql -u <user> -p
+```
+
+Replace `<user>` with the username obtained from `mysql.env`. When prompted, enter the corresponding password.
+
+Using `-p` without specifying the password directly is recommended because it avoids exposing the password in the command itself.
+
+### Step 5.4: Select the application database
+
+Once logged in to MySQL, select the database on which the release queries must be executed:
+
+```
+USE <database_name>;
+```
+
+Replace `<database_name>` with the correct application database name.
+
+Verify the selected database before proceeding:
+
+```
+SELECT DATABASE();
+```
+
+### Step 5.5: Locate the release SQL file
+
+Open a new terminal session on the deployment server, leaving the existing MySQL session open.
+
+Navigate to the application deployment directory:
+
+```
+cd /home/user/projects/deeptek-augmento-lite
+```
+
+The release-specific database queries are stored in the `db-queries` directory. Locate the SQL file corresponding to the release being deployed.
+
+For example:
+
+```
+ls db-queries/
+```
+
+Then display the relevant SQL file:
+
+```
+cat db-queries/release-V<version>-queries.sql
+```
+
+Replace `<version>` with the actual release version.
+
+### Step 5.6: Execute the release queries
+
+Copy the SQL statements displayed in the second terminal and paste them into the existing MySQL terminal, where the application database has already been selected.
+
+Execute the statements and review the output for errors. Some queries may return results, while others may report the number of affected rows.
+
+Important: Before executing the queries, confirm that the SQL file corresponds to the intended release and database. Review any `UPDATE`, `DELETE`, `DROP`, or schema-changing statements carefully. Take a database backup before executing release queries, as appropriate for the deployment procedure.
+
+### Alternative: Execute the SQL file directly
+
+Instead of copying and pasting the queries manually, you can execute the file directly from the deployment directory:
+
+```
+docker exec -i dt_mysql mysql -u <user> -p <database_name> < db-queries/release-V<version>-queries.sql
+```
+
+This command prompts for the MySQL password and passes the SQL file directly to the MySQL client inside the container. It avoids manual copying and reduces the risk of missing statements.
+
+Use the method approved for the deployment process, and verify that the execution completed successfully before proceeding.
